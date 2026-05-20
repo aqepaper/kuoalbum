@@ -141,14 +141,16 @@
     box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
   }
   .photo-img-wrap img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+    opacity: 0;
+    transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .photo-img-wrap img.loading { opacity: 0; }
-  .photo-img-wrap img.loaded { opacity: 1; }
+  .photo-img-wrap img.active { opacity: 1; }
 
   .spinner {
     position: absolute;
@@ -197,17 +199,7 @@
     z-index: 5;
   }
 
-  .transition-overlay {
-    position: absolute;
-    inset: 0;
-    background: #f7ede2;
-    mix-blend-mode: color-dodge;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-    z-index: 10;
-  }
-  .transition-overlay.flash { opacity: 0.18; }
+  /* transition-overlay removed — using cross-fade */
 
   .counter {
     position: fixed;
@@ -359,7 +351,8 @@
     <div class="tape"></div>
     <div class="photo-frame">
       <div class="photo-img-wrap" id="imgWrap">
-        <img id="mainImg" class="loading" src="" alt="">
+        <img id="imgA" src="" alt="">
+        <img id="imgB" src="" alt="">
         <div class="spinner" id="spinner"><div class="spinner-ring"></div></div>
       </div>
       <div class="photo-caption" id="caption">載入中⋯</div>
@@ -460,48 +453,60 @@ function updateDots() {
   document.getElementById('counter').textContent = (cur + 1) + ' / ' + photos.length;
 }
 
+let activeLayer = 'A'; // A/B swap
+
 function showPhoto(idx, transition = true) {
-  const img = document.getElementById('mainImg');
+  const imgA = document.getElementById('imgA');
+  const imgB = document.getElementById('imgB');
   const spinner = document.getElementById('spinner');
   const caption = document.getElementById('caption');
-  const overlay = document.getElementById('overlay');
   const photo = photos[idx];
 
-  const doLoad = () => {
-    spinner.classList.remove('hide');
-    img.classList.remove('loaded');
-    img.classList.add('loading');
-    caption.textContent = photo.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
-    const newImg = new Image();
-    newImg.onload = () => {
-      img.src = newImg.src;
-      img.classList.remove('loading');
-      img.classList.add('loaded');
-      spinner.classList.add('hide');
-    };
-    newImg.onerror = () => {
-      spinner.classList.add('hide');
-      caption.textContent = '⚠ 無法載入';
-    };
-    newImg.src = getImgUrl(photo.id);
+  caption.textContent = photo.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+
+  // Determine incoming / outgoing layers
+  const incoming = activeLayer === 'A' ? imgA : imgB;
+  const outgoing = activeLayer === 'A' ? imgB : imgA;
+
+  if (!transition) {
+    // First load: set directly
+    incoming.src = getImgUrl(photo.id);
+    incoming.classList.add('active');
+    outgoing.classList.remove('active');
+    spinner.classList.add('hide');
+    updateDots();
+    // Preload next
+    _preload(idx + 1);
+    return;
+  }
+
+  spinner.classList.remove('hide');
+  const newImg = new Image();
+  newImg.onload = () => {
+    spinner.classList.add('hide');
+    incoming.src = newImg.src;
+    // Cross-fade: bring in new, fade out old
+    requestAnimationFrame(() => {
+      incoming.classList.add('active');
+      outgoing.classList.remove('active');
+      activeLayer = activeLayer === 'A' ? 'B' : 'A';
+    });
+    _preload(idx + 1);
   };
-
-  if (transition) {
-    overlay.classList.add('flash');
-    setTimeout(() => {
-      doLoad();
-      overlay.classList.remove('flash');
-    }, 350);
-  } else {
-    doLoad();
-  }
-
-  if (photos[idx + 1]) {
-    const pre = new Image();
-    pre.src = getImgUrl(photos[idx + 1].id);
-  }
+  newImg.onerror = () => {
+    spinner.classList.add('hide');
+    caption.textContent = '⚠ 無法載入';
+  };
+  newImg.src = getImgUrl(photo.id);
 
   updateDots();
+}
+
+function _preload(idx) {
+  if (photos[idx % photos.length]) {
+    const pre = new Image();
+    pre.src = getImgUrl(photos[idx % photos.length].id);
+  }
 }
 
 function goTo(idx) {
@@ -578,6 +583,9 @@ function init() {
   setTimeout(() => ls.remove(), 800);
   document.getElementById('progCircle').style.strokeDasharray = CIRC;
   buildDots();
+  activeLayer = 'A';
+  document.getElementById('imgA').classList.remove('active');
+  document.getElementById('imgB').classList.remove('active');
   showPhoto(0, false);
   startTimer();
   // Try to play BGM; fallback to user interaction
