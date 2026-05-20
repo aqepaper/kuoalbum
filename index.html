@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>郭家相簿 - 珍藏藝廊</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@200;300;400;600&family=Playfair+Display:ital,wght@0,300;0,400;1,300;1,400&display=swap');
+
+  :root {
+    --bg-radial: radial-gradient(circle at center, #2a1f18 0%, #0f0b08 100%);
+    --gold: #bd9f6b;
+    --gold-light: #f1e4c3;
+    --brown-dark: #463725;
+    --brown-mid: #8a7355;
+    --cream: #f7f4eb;
+    --shadow-deep: 
+      0 30px 70px rgba(0,0,0,0.85), 
+      0 10px 20px rgba(0,0,0,0.4),
+      inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg-radial);
+    font-family: 'Noto Serif TC', serif;
+    touch-action: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.35;
+  }
+
+  .film-strip {
+    position: fixed;
+    left: 0; right: 0;
+    height: 32px;
+    background: #090705;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 0 20px rgba(0,0,0,0.6);
+  }
+  .film-strip.top { top: 0; border-bottom: 1px solid #1a130d; }
+  .film-strip.bottom { bottom: 0; border-top: 1px solid #1a130d; }
+  .film-holes {
+    display: flex;
+    width: 100%;
+    justify-content: space-around;
+    padding: 0 12px;
+  }
+  .film-hole {
+    width: 14px; height: 11px;
+    border-radius: 2.5px;
+    background: #030202;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.85), 0 1px 1px rgba(255,255,255,0.05);
+    flex-shrink: 0;
+  }
+
+  .title-bar {
+    position: fixed;
+    top: 32px;
+    left: 0; right: 0;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 40;
+    background: linear-gradient(to bottom, rgba(15,11,8,0.95), rgba(15,11,8,0.0));
+    padding-top: 6px;
+  }
+  .title-bar h1 {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--gold-light);
+    font-size: clamp(18px, 4.5vw, 24px);
+    letter-spacing: 0.15em;
+    text-shadow: 0 3px 10px rgba(0,0,0,0.9);
+  }
+  .title-bar .subtitle {
+    font-size: 9px;
+    color: var(--brown-mid);
+    letter-spacing: 0.4em;
+    margin-top: 4px;
+    font-weight: 300;
+  }
+
+  .stage {
+    position: fixed;
+    top: 32px; bottom: 32px;
+    left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .frame-wrap {
+    position: relative;
+    width: min(350px, 84vw);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    perspective: 1000px;
+  }
+
+  .photo-frame {
+    position: relative;
+    width: 100%;
+    background: var(--cream);
+    padding: 16px 16px 56px;
+    box-shadow: var(--shadow-deep);
+    border-radius: 2px;
+    transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  .photo-frame::before {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    border: 1px solid rgba(189,159,107,0.15);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .photo-img-wrap {
+    width: 100%;
+    aspect-ratio: 3/4;
+    overflow: hidden;
+    position: relative;
+    background: #120e0a;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .photo-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  .photo-img-wrap img.loading { opacity: 0; }
+  .photo-img-wrap img.loaded { opacity: 1; }
+
+  .spinner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s;
+  }
+  .spinner.hide { opacity: 0; pointer-events: none; }
+  .spinner-ring {
+    width: 28px; height: 28px;
+    border: 1.5px solid rgba(200,180,120,0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .photo-caption {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #5c4b37;
+    letter-spacing: 0.25em;
+    font-weight: 300;
+    padding: 0 16px;
+    text-align: center;
+  }
+
+  .tape {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-1.5deg);
+    width: 58px; height: 18px;
+    background: linear-gradient(90deg, rgba(247,242,218,0.2) 0%, rgba(247,242,218,0.45) 50%, rgba(247,242,218,0.2) 100%);
+    border-left: 1px dashed rgba(189,159,107,0.25);
+    border-right: 1px dashed rgba(189,159,107,0.25);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    backdrop-filter: blur(1.5px);
+    z-index: 5;
+  }
+
+  .transition-overlay {
+    position: absolute;
+    inset: 0;
+    background: #f7ede2;
+    mix-blend-mode: color-dodge;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    z-index: 10;
+  }
+  .transition-overlay.flash { opacity: 0.18; }
+
+  .counter {
+    position: fixed;
+    top: 42px;
+    right: 20px;
+    font-family: 'Playfair Display', serif;
+    color: var(--brown-dark);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    z-index: 45;
+    font-weight: 300;
+  }
+
+  .controls {
+    position: fixed;
+    bottom: 36px;
+    left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 40;
+    padding: 12px 0 6px;
+    background: linear-gradient(to top, rgba(15,11,8,0.9), transparent);
+  }
+
+  .btn {
+    background: rgba(38, 29, 22, 0.45);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(201, 180, 138, 0.2);
+    color: var(--gold);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  }
+  .btn:hover { border-color: var(--gold-light); color: var(--gold-light); box-shadow: 0 0 12px rgba(241,228,195,0.25); }
+  .btn:active { background: rgba(201,180,138,0.2); transform: scale(0.92); }
+
+  .btn-play-wrap {
+    position: relative;
+    width: 40px; height: 40px;
+  }
+  .btn-play-wrap .btn {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+  }
+  .prog-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    transform: rotate(-90deg);
+  }
+  .prog-circle {
+    fill: none;
+    stroke: var(--gold-light);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    stroke-dasharray: 113;
+    stroke-dashoffset: 113;
+    transition: stroke-dashoffset 0.2s linear;
+  }
+
+  .dots {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    max-width: 200px;
+    overflow: hidden;
+    justify-content: center;
+  }
+  .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--brown-dark);
+    cursor: pointer;
+    border: none;
+    flex-shrink: 0;
+    transition: background 0.4s cubic-bezier(0.25, 1, 0.5, 1), transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dot.active { background: var(--gold-light); transform: scale(1.5); box-shadow: 0 0 8px var(--gold-light); }
+
+  #loadScreen {
+    position: fixed;
+    inset: 0;
+    background: #0f0b08;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    gap: 20px;
+    transition: opacity 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  #loadScreen.fade-out { opacity: 0; pointer-events: none; }
+  .load-title {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-weight: 300;
+    color: var(--gold-light);
+    font-size: 24px;
+    letter-spacing: 0.15em;
+  }
+  .load-sub { color: var(--brown-mid); font-size: 11px; letter-spacing: 0.35em; }
+  .load-ring {
+    width: 36px; height: 36px;
+    border: 1.5px solid rgba(201,180,138,0.1);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  .load-err { color: #c07060; font-size: 12px; text-align: center; padding: 0 32px; line-height: 1.8; display: none; }
+</style>
+</head>
+<body>
+
+<div id="loadScreen">
+  <div class="load-title">郭家相簿</div>
+  <div class="load-ring" id="loadRing"></div>
+  <div class="load-sub" id="loadMsg">正在載入相片⋯</div>
+  <div class="load-err" id="loadErr"></div>
+</div>
+
+<div class="film-strip top"><div class="film-holes" id="holesTop"></div></div>
+<div class="film-strip bottom"><div class="film-holes" id="holesBottom"></div></div>
+
+<div class="title-bar">
+  <h1>郭家相簿</h1>
+  <div class="subtitle">家族珍藏 · FAMILY MEMORIES</div>
+</div>
+
+<div class="counter" id="counter">- / -</div>
+
+<div class="stage">
+  <div class="frame-wrap">
+    <div class="tape"></div>
+    <div class="photo-frame">
+      <div class="photo-img-wrap" id="imgWrap">
+        <img id="mainImg" class="loading" src="" alt="">
+        <div class="spinner" id="spinner"><div class="spinner-ring"></div></div>
+      </div>
+      <div class="photo-caption" id="caption">載入中⋯</div>
+    </div>
+    <div class="transition-overlay" id="overlay"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn" id="btnPrev" onclick="nav(-1)">&#8592;</button>
+  <div class="dots" id="dots"></div>
+  <div class="btn-play-wrap">
+    <svg class="prog-svg" viewBox="0 0 38 38">
+      <circle class="prog-circle" id="progCircle" cx="19" cy="19" r="18"/>
+    </svg>
+    <button class="btn" id="btnPlayPause" onclick="togglePlay()">&#10074;&#10074;</button>
+  </div>
+  <button class="btn" id="btnNext" onclick="nav(1)">&#8594;</button>
+</div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyhyoG--ajVVMHZz6Hj0heX8BJbZOQiAj4UEgZtGL3LtX6ksmlwUQ3_IuJM3oL0bROr/exec';
+const INTERVAL = 20000;
+const CIRC = 2 * Math.PI * 18;
+
+let photos = [];
+let cur = 0;
+let playing = true;
+let timer = null;
+let rafId = null;
+let startTs = null;
+
+function buildHoles() {
+  const count = Math.floor(window.innerWidth / 26);
+  ['holesTop','holesBottom'].forEach(id => {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const h = document.createElement('div');
+      h.className = 'film-hole';
+      el.appendChild(h);
+    }
+  });
+}
+buildHoles();
+window.addEventListener('resize', buildHoles);
+
+async function loadPhotos() {
+  try {
+    const res = await fetch(GAS_URL);
+    const data = await res.json();
+    photos = data.filter(f => /\.(jpg|jpeg|png|gif|webp|heic)/i.test(f.name));
+    if (photos.length === 0) throw new Error('資料夾內沒有找到相片');
+    init();
+  } catch(e) {
+    document.getElementById('loadRing').style.display = 'none';
+    document.getElementById('loadMsg').style.display = 'none';
+    const err = document.getElementById('loadErr');
+    err.style.display = 'block';
+    err.textContent = '無法載入相片清單，請確認 GAS 已正確部署。\n(' + e.message + ')';
+  }
+}
+
+function getImgUrl(id) {
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w1200`;
+}
+
+function buildDots() {
+  const dotsEl = document.getElementById('dots');
+  dotsEl.innerHTML = '';
+  const max = Math.min(photos.length, 9);
+  for (let i = 0; i < max; i++) {
+    const d = document.createElement('button');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotsEl.appendChild(d);
+  }
+}
+
+function updateDots() {
+  const dotEls = document.querySelectorAll('.dot');
+  const max = Math.min(photos.length, 9);
+  dotEls.forEach((d, i) => {
+    let targetIdx = i;
+    if (photos.length > 9) {
+      targetIdx = Math.round(i * (photos.length - 1) / (max - 1));
+    }
+    d.classList.toggle('active', photos.length <= 9 ? i === cur : Math.abs(targetIdx - cur) < (photos.length / max / 2 + 0.5));
+  });
+  document.getElementById('counter').textContent = (cur + 1) + ' / ' + photos.length;
+}
+
+function showPhoto(idx, transition = true) {
+  const img = document.getElementById('mainImg');
+  const spinner = document.getElementById('spinner');
+  const caption = document.getElementById('caption');
+  const overlay = document.getElementById('overlay');
+  const photo = photos[idx];
+
+  const doLoad = () => {
+    spinner.classList.remove('hide');
+    img.classList.remove('loaded');
+    img.classList.add('loading');
+    caption.textContent = photo.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+    const newImg = new Image();
+    newImg.onload = () => {
+      img.src = newImg.src;
+      img.classList.remove('loading');
+      img.classList.add('loaded');
+      spinner.classList.add('hide');
+    };
+    newImg.onerror = () => {
+      spinner.classList.add('hide');
+      caption.textContent = '⚠ 無法載入';
+    };
+    newImg.src = getImgUrl(photo.id);
+  };
+
+  if (transition) {
+    overlay.classList.add('flash');
+    setTimeout(() => {
+      doLoad();
+      overlay.classList.remove('flash');
+    }, 350);
+  } else {
+    doLoad();
+  }
+
+  if (photos[idx + 1]) {
+    const pre = new Image();
+    pre.src = getImgUrl(photos[idx + 1].id);
+  }
+
+  updateDots();
+}
+
+function goTo(idx) {
+  cur = (idx + photos.length) % photos.length;
+  showPhoto(cur);
+  resetProgress();
+  if (playing) startTimer();
+}
+
+function nav(dir) {
+  clearTimers();
+  goTo(cur + dir);
+}
+
+let touchX = null;
+document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, {passive: true});
+document.addEventListener('touchend', e => {
+  if (touchX === null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx) > 50) nav(dx < 0 ? 1 : -1);
+  touchX = null;
+}, {passive: true});
+
+function resetProgress() {
+  startTs = null;
+  document.getElementById('progCircle').style.strokeDashoffset = CIRC;
+}
+
+function animateRing(ts) {
+  if (!startTs) startTs = ts;
+  const elapsed = ts - startTs;
+  const pct = Math.min(elapsed / INTERVAL, 1);
+  document.getElementById('progCircle').style.strokeDashoffset = CIRC * (1 - pct);
+  if (pct < 1 && playing) rafId = requestAnimationFrame(animateRing);
+}
+
+function startTimer() {
+  clearTimers();
+  startTs = null;
+  rafId = requestAnimationFrame(animateRing);
+  timer = setTimeout(() => goTo(cur + 1), INTERVAL);
+}
+
+function clearTimers() {
+  clearTimeout(timer);
+  cancelAnimationFrame(rafId);
+  timer = null; rafId = null;
+}
+
+function togglePlay() {
+  playing = !playing;
+  const btn = document.getElementById('btnPlayPause');
+  if (playing) {
+    btn.innerHTML = '&#10074;&#10074;';
+    startTimer();
+  } else {
+    btn.innerHTML = '&#9654;';
+    clearTimers();
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') nav(-1);
+  else if (e.key === 'ArrowRight') nav(1);
+  else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+});
+
+function init() {
+  const ls = document.getElementById('loadScreen');
+  ls.classList.add('fade-out');
+  setTimeout(() => ls.remove(), 800);
+  document.getElementById('progCircle').style.strokeDasharray = CIRC;
+  buildDots();
+  showPhoto(0, false);
+  startTimer();
+}
+
+loadPhotos();
+</script>
+</body>
+</html>
